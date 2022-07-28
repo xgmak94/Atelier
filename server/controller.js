@@ -11,6 +11,7 @@ const client = new Client({
 
 client.connect();
 
+//TODO
 module.exports.getAllProducts = (req, res) => {
   const queryString = 'SELECT * FROM product';
   client
@@ -25,19 +26,19 @@ module.exports.getAllProducts = (req, res) => {
 
 module.exports.getProduct = (req, res) => {
   let { product_id } = req.params;
-  const queryString = `SELECT product_id as id, name, slogan, description, category, default_price
+  const queryString = `SELECT product_id as id, name, slogan, description, category, default_price, created_at, updated_at
                         FROM product
                         WHERE product_id = ${product_id}`;
-  const secondQuery = `SELECT feature, value
+  const featureQuery = `SELECT feature, value
                         FROM feature
                         WHERE PRODUCT_ID = ${product_id}`;
 
   client
     .query(queryString)
     .then((results) => {
-      client.query(secondQuery).then((secondResults) => {
-        let ret = results.rows;
-        ret[0].features = secondResults.rows;
+      client.query(featureQuery).then((secondResults) => {
+        let ret = results.rows[0];
+        ret.features = secondResults.rows;
 
         res.status(200).send(ret);
       });
@@ -47,18 +48,25 @@ module.exports.getProduct = (req, res) => {
     });
 };
 
+//TODO
 module.exports.getStyles = (req, res) => {
   let { product_id } = req.params;
-  const queryString = `Select style_id from style
-                      where product_id = ${product_id}`;
+  const queryString = `SELECT style_id, name, original_price, sale_price, default_style as "default?"
+                        FROM style
+                        WHERE product_id = ${product_id}`;
+  const photoQuery = `SELECT photo.style_id, url, thumbnail_url
+                        FROM photo
+                        WHERE photo.style_id in (SELECT style_id from style
+                                                  WHERE product_id = ${product_id});`
+  const skuQuery = `SELECT sku.style_id, size, quantity
+                        FROM sku
+                        WHERE sku.style_id in (SELECT style_id from style
+                                                  WHERE product_id = ${product_id});`
+
   client
     .query(queryString)
-    .then((results) => {
-      let styles = results.rows.map((row) => {
-        return row.style_id;
-      })
-      console.log(styles);
-      res.status(200).send(styles);
+    .then((results1) => {
+      res.status(200).send(results1.rows);
     })
     .catch((err) => {
       console.log(err);
