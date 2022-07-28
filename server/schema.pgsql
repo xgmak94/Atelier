@@ -1,6 +1,3 @@
--- psql -U postgres
--- \i 'C:/Users/Gary/Desktop/HackReactor/Products/server/schema.pgsql'
-
 DROP DATABASE IF EXISTS products;
 CREATE DATABASE products;
 
@@ -13,7 +10,9 @@ CREATE TABLE product (
   slogan TEXT,
   description TEXT,
   category TEXT,
-  default_price FLOAT
+  default_price TEXT,
+  created_at TIMESTAMP DEFAULT now(),
+  updated_at TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE related (
@@ -34,8 +33,8 @@ CREATE TABLE style (
   product_id INT references product(product_id),
   style_id INT UNIQUE,
   name TEXT,
-  sale_price FLOAT NULL,
-  original_price FLOAT,
+  sale_price TEXT NULL,
+  original_price TEXT,
   default_style BOOLEAN
 );
 
@@ -49,7 +48,7 @@ CREATE TABLE photo (
 CREATE TABLE sku (
   id SERIAL PRIMARY KEY,
   style_id INT references style(style_id),
-  size varchar(2),
+  size varchar(10),
   quantity INT
 );
 
