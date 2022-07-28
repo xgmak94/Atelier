@@ -46,3 +46,40 @@ module.exports.getProduct = (req, res) => {
       res.status(500).send(err);
     });
 };
+
+module.exports.getStyles = (req, res) => {
+  let { product_id } = req.params;
+  const queryString = `Select style_id from style
+                      where product_id = ${product_id}`;
+  client
+    .query(queryString)
+    .then((results) => {
+      let styles = results.rows.map((row) => {
+        return row.style_id;
+      })
+      console.log(styles);
+      res.status(200).send(styles);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
+
+module.exports.getRelated = (req, res) => {
+  let { product_id } = req.params;
+  const queryString = `SELECT DISTINCT related_product_id
+                        FROM related
+                        WHERE current_product_id = ${product_id};`;
+  client
+    .query(queryString)
+    .then((results) => {
+      let ret = results.rows.map((row) => {
+        return row.related_product_id;
+      });
+
+      res.status(200).send(ret);
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
