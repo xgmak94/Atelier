@@ -51,10 +51,3 @@ CREATE TABLE sku (
   size varchar(10),
   quantity INT
 );
-
-CREATE TABLE cart (
-  id SERIAL PRIMARY KEY,
-  user_session INT,
-  product_id INT references product(product_id),
-  active BOOLEAN
-);

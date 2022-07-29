@@ -11,9 +11,14 @@ const client = new Client({
 
 client.connect();
 
-//TODO
+//TODO double check page/count works
 module.exports.getAllProducts = (req, res) => {
-  const queryString = 'SELECT * FROM product';
+  let page = req.query.page || 1;
+  let count = req.query.count || 5;
+  const queryString = `SELECT product_id as id, name, slogan, description, category, default_price, created_at, updated_at
+                        FROM product
+                        offset ${(page - 1) * count}
+                        limit ${count};`;
   client
     .query(queryString)
     .then((results) => {
@@ -25,59 +30,93 @@ module.exports.getAllProducts = (req, res) => {
 };
 
 module.exports.getProduct = (req, res) => {
-  let { product_id } = req.params;
-  const queryString = `SELECT product_id as id, name, slogan, description, category, default_price, created_at, updated_at
-                        FROM product
-                        WHERE product_id = ${product_id}`;
-  const featureQuery = `SELECT feature, value
-                        FROM feature
-                        WHERE PRODUCT_ID = ${product_id}`;
-
+  const queryString = `SELECT PRODUCT.PRODUCT_ID, NAME, SLOGAN, DESCRIPTION, CATEGORY, DEFAULT_PRICE, CREATED_AT, UPDATED_AT, FEATURE, VALUE
+                        FROM PRODUCT
+                        JOIN FEATURE ON PRODUCT.PRODUCT_ID = FEATURE.PRODUCT_ID
+                        WHERE PRODUCT.PRODUCT_ID = ${req.params.product_id};`;
   client
     .query(queryString)
     .then((results) => {
-      client.query(featureQuery).then((secondResults) => {
-        let ret = results.rows[0];
-        ret.features = secondResults.rows;
+      let ret = {
+        ...results.rows[0],
+      };
+      delete ret.feature; delete ret.value;
 
-        res.status(200).send(ret);
+      let features = [];
+      results.rows.forEach((row) => {
+        features.push({ feature: row.feature, value: row.value });
       });
+      ret.features = features;
+
+      res.status(200).send(ret);
     })
     .catch((err) => {
       res.status(500).send(err);
     });
 };
 
-//TODO
 module.exports.getStyles = (req, res) => {
   let { product_id } = req.params;
-  const queryString = `SELECT style_id, name, original_price, sale_price, default_style as "default?"
-                        FROM style
-                        WHERE product_id = ${product_id}`;
-  const photoQuery = `SELECT photo.style_id, url, thumbnail_url
-                        FROM photo
-                        WHERE photo.style_id in (SELECT style_id from style
-                                                  WHERE product_id = ${product_id});`
-  const skuQuery = `SELECT sku.style_id, size, quantity
-                        FROM sku
-                        WHERE sku.style_id in (SELECT style_id from style
-                                                  WHERE product_id = ${product_id});`
+  let queryString = `SELECT STYLE.STYLE_ID, NAME, ORIGINAL_PRICE, SALE_PRICE, DEFAULT_STYLE AS "default?", url, thumbnail_url, size, quantity, SKU.ID as SKU_ID
+                      FROM STYLE
+                      JOIN PHOTO ON STYLE.STYLE_ID = PHOTO.STYLE_ID
+                      JOIN SKU ON STYLE.STYLE_ID = SKU.STYLE_ID
+                      WHERE PRODUCT_ID = ${product_id};`;
 
   client
     .query(queryString)
-    .then((results1) => {
-      res.status(200).send(results1.rows);
+    .then((results) => {
+      let styleSet = new Set();
+      let photoSet = new Set();
+      let ret = {product_id, results: []};
+
+      results.rows.forEach((row) => {
+        let sku_id = row.sku_id;
+        if(styleSet.has(row.style_id)) {
+          let idx = ret.results.findIndex((element) => element.style_id === row.style_id);
+          let photo = {
+            thumbnail_url: row.thumbnail_url,
+            url : row.url
+          }
+          if(!photoSet.has(JSON.stringify(photo))) {
+            photoSet.add(JSON.stringify(photo));
+            ret.results[idx].photos.push(photo);
+          }
+          ret.results[idx].skus[sku_id] = {
+            quantity: row.quantity,
+            size: row.size
+          }
+        }
+        else {
+          let photo = {
+            thumbnail_url: row.thumbnail_url,
+            url: row.url
+          }
+          styleSet.add(row.style_id);
+          photoSet.add(JSON.stringify(photo));
+          row.photos = [photo];
+          row.skus = {};
+          row.skus[sku_id] = {
+            quantity: row.quantity,
+            size: row.size
+          };
+          ret.results.push(row);
+          delete row.url; delete row.thumbnail_url; delete row.sku_id;
+          delete row.quantity; delete row.size;
+        }
+      })
+
+      res.status(200).send(ret);
     })
     .catch((err) => {
-      console.log(err);
+      res.status(500).send(err);
     });
 };
 
 module.exports.getRelated = (req, res) => {
-  let { product_id } = req.params;
   const queryString = `SELECT DISTINCT related_product_id
                         FROM related
-                        WHERE current_product_id = ${product_id};`;
+                        WHERE current_product_id = ${req.params.product_id};`;
   client
     .query(queryString)
     .then((results) => {
@@ -88,6 +127,6 @@ module.exports.getRelated = (req, res) => {
       res.status(200).send(ret);
     })
     .catch((err) => {
-      console.log(err);
+      res.status(500).send(err);
     });
 };
