@@ -16,6 +16,7 @@ module.exports.getAllProducts = (req, res) => {
   let count = req.query.count || 5;
   const queryString = `SELECT PRODUCT_ID AS ID, NAME, SLOGAN, DESCRIPTION, CATEGORY, DEFAULT_PRICE, CREATED_AT, UPDATED_AT
                         FROM product
+                        ORDER BY ID ASC
                         OFFSET ${(page - 1) * count}
                         LIMIT ${count};`;
   client
